@@ -1,0 +1,95 @@
+//----------------------------------------------------------------------------
+// Task
+//----------------------------------------------------------------------------
+
+module formula_2_fsm
+(
+    input               clk,
+    input               rst,
+
+    input               arg_vld,
+    input        [31:0] a,
+    input        [31:0] b,
+    input        [31:0] c,
+
+    output logic        res_vld,
+    output logic [31:0] res,
+
+    // isqrt interface
+
+    output logic        isqrt_x_vld,
+    output logic [31:0] isqrt_x,
+
+    input               isqrt_y_vld,
+    input        [15:0] isqrt_y
+);
+    // Task:
+    // Implement a module that calculates the folmula from the `formula_2_fn.svh` file
+    // using only one instance of the isrt module.
+    //
+    // Design the FSM to calculate answer step-by-step and provide the correct `res` value
+    enum logic[1:0]
+    {
+      ST_IDLE          = 2'd0,
+      ST_WAITING_RES_C = 2'd1,
+      ST_WAITING_RES_B = 2'd2,
+      ST_WAITING_RES_A = 2'd3
+    } state, next_state;
+
+    always_comb begin
+      next_state  = state;
+      isqrt_x     = 'x;
+      isqrt_x_vld = 1'b0;
+
+      case(state)
+	ST_IDLE: begin
+	  isqrt_x = c;
+	  if(arg_vld) begin
+	    isqrt_x_vld = 1'b1;
+	    next_state  = ST_WAITING_RES_C;
+	  end
+	end
+
+        ST_WAITING_RES_C: begin
+	  isqrt_x = b + isqrt_y;
+	  if(isqrt_y_vld) begin
+	    isqrt_x_vld = 1'b1;
+	    next_state  = ST_WAITING_RES_B;
+	  end
+	end
+
+	ST_WAITING_RES_B: begin
+	  isqrt_x = a + isqrt_y;
+	  if(isqrt_y_vld) begin
+	    isqrt_x_vld = 1'b1;
+	    next_state  = ST_WAITING_RES_A;
+	  end
+	end
+
+	ST_WAITING_RES_A: begin
+	  if(isqrt_y_vld) begin
+	    next_state = ST_IDLE;	    
+	  end
+	end
+      endcase
+
+    end
+
+    always_ff @(posedge clk)
+      if(rst)
+        state <= ST_IDLE;
+      else
+	state <= next_state;
+
+    always_ff @(posedge clk)
+      if(state == ST_IDLE)
+	res <= '0;
+      else if(state == ST_WAITING_RES_A && isqrt_y_vld)
+	res <= isqrt_y;
+
+    always_ff @(posedge clk)
+      if(rst)
+	res_vld <= 1'b0;
+      else
+	res_vld <= state == ST_WAITING_RES_A && isqrt_y_vld;
+endmodule
